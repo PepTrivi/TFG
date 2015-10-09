@@ -1,0 +1,19 @@
+#! /bin/sh 
+
+echo "Generating McPat input"
+~/McPATAnalysis/tasksim-mcpat.py --out=mcpat-input.xml test.config results.txt 1 0
+echo "Executing McPAT..."
+~/bin/McPAT/mcpat -infile mcpat-input.xml -print_level 4 > power_stats.txt
+
+L1write=$(grep L1Write power_stats.txt | awk '{printf ("%.13f", $2); exit}') #dcache.caches->local_result.power.writeOp.dynamic
+L1avg=$(grep L1Avg power_stats.txt | awk '{printf ("%.13f", $2); exit}') # (dcache.caches->local_result.power.writeOp.dynamic + dcache.caches->local_result.power.readOp.dynamic)/2
+L2write=$(grep L2Write power_stats.txt | awk '{printf ("%.13f", $2); exit}') #unicache.caches->local_result.power.writeOp.dynamic
+L2avg=$(grep L2Avg power_stats.txt | awk '{printf ("%.13f", $2); exit}') # (unicache.caches->local_result.power.writeOp.dynamic + unicache.caches->local_result.power.readOp.dynamic)/2
+
+L1avgT=$(echo "scale=6;$L1avg"| bc -q | sed 's/^\./0./;s/0*$//;s/\.$//')    #op floats
+L2avgT=$(echo "scale=6;$L2avg"| bc -q | sed 's/^\./0./;s/0*$//;s/\.$//')    #op floats
+L1writeT=$(echo "scale=6;$L1write"| bc -q | sed 's/^\./0./;s/0*$//;s/\.$//')    #op floats
+L2writeT=$(echo "scale=6;$L2write"| bc -q | sed 's/^\./0./;s/0*$//;s/\.$//')    #op floats
+
+sed -i "154s/.*window_factors.*/window_factors $L1avgT $L1writeT/" cfgs/Total.cfg
+sed -i "333s/.*window_factors.*/window_factors $L2avgT $L2writeT/" cfgs/Total.cfg
